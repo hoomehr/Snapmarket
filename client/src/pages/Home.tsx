@@ -11,7 +11,7 @@ import { Stock } from "@shared/schema";
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(20);
+  const [pageSize] = useState(16); // 16 stocks per page (4x4 grid)
   const [recommendation, setRecommendation] = useState<RecommendationType | undefined>(undefined);
   const [sector, setSector] = useState<Sector | undefined>(undefined);
   const [sortBy, setSortBy] = useState<SortOption>("alphabetical");
@@ -133,7 +133,7 @@ export default function Home() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-6">
               {stocksData?.stocks.map((stock: Stock) => (
                 <StockCard 
                   key={stock.symbol} 

@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Stock } from "@shared/schema";
-import { formatCurrency, formatLargeNumber, getRecommendationColor } from "@/lib/utils";
+import { formatCurrency, formatLargeNumber, getRecommendationColor, getSectorColor } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 
 interface StockCardProps {
@@ -30,9 +30,11 @@ export default function StockCard({ stock, onViewDetails }: StockCardProps) {
   };
 
   const recommendationColor = getRecommendationColor(stock.recommendation);
+  const sectorColor = getSectorColor(stock.sector as string);
   
   return (
     <Card className="hover:shadow-md transition-shadow duration-300 overflow-hidden">
+      {/* Keep header as is */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-start justify-between">
           <div>
@@ -47,39 +49,46 @@ export default function StockCard({ stock, onViewDetails }: StockCardProps) {
         </div>
       </div>
       
-      <CardContent className="p-4">
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div>
+      <CardContent className="p-3">
+        {/* Use smaller fields in a more compact layout */}
+        <div className="flex mb-2">
+          <div className="w-1/2">
             <p className="text-xs text-gray-500 uppercase">Price</p>
-            <p className="text-lg font-semibold">{formatCurrency(Number(stock.price))}</p>
+            <p className="text-base font-semibold">{formatCurrency(Number(stock.price))}</p>
           </div>
-          <div>
+          <div className="w-1/2">
             <p className="text-xs text-gray-500 uppercase">Change</p>
-            <p className={`text-lg font-semibold ${changeColor}`}>
+            <p className={`text-base font-semibold ${changeColor}`}>
               {isPositiveChange ? "+" : ""}{stock.changePercent}%
             </p>
           </div>
-          <div>
+        </div>
+        
+        <div className="flex mb-3">
+          <div className="w-1/2">
             <p className="text-xs text-gray-500 uppercase">Volume</p>
-            <p className="text-sm">{formatLargeNumber(Number(stock.volume))}</p>
+            <p className="text-xs">{formatLargeNumber(Number(stock.volume))}</p>
           </div>
-          <div>
+          <div className="w-1/2">
             <p className="text-xs text-gray-500 uppercase">Market Cap</p>
-            <p className="text-sm">{formatLargeNumber(Number(stock.marketCap))}</p>
+            <p className="text-xs">{formatLargeNumber(Number(stock.marketCap))}</p>
           </div>
         </div>
         
-        <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-          <div>
-            <p className="text-xs text-gray-500 uppercase">Sector</p>
-            <p className="text-sm">{formatSector(stock.sector)}</p>
+        <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+          {/* Colored sector tag */}
+          <div 
+            className={`rounded-md px-2 py-0.5 text-xs font-medium ${sectorColor.bg} ${sectorColor.text}`}
+          >
+            {formatSector(stock.sector)}
           </div>
+          
           <button 
-            className="text-sm font-medium text-black hover:text-gray-700 flex items-center gap-1"
+            className="text-xs font-medium text-black hover:text-gray-700 flex items-center gap-1"
             onClick={onViewDetails}
           >
-            View Details
-            <ChevronRight className="h-4 w-4" />
+            Details
+            <ChevronRight className="h-3 w-3" />
           </button>
         </div>
       </CardContent>

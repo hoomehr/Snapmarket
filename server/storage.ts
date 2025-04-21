@@ -249,105 +249,88 @@ export class MemStorage implements IStorage {
   
   async refreshStocks(): Promise<void> {
     try {
-      console.log("Fetching real-time stock data from Polygon.io API...");
+      console.log("Fetching real-time stock data from TwelveData API...");
       
       // Check if we have an API key
-      const apiKey = process.env.POLYGON_API_KEY;
+      const apiKey = process.env.TWELVEDATA_API_KEY;
       if (!apiKey) {
-        throw new Error("POLYGON_API_KEY environment variable is not set");
+        throw new Error("TWELVEDATA_API_KEY environment variable is not set");
       }
       
-      // Only process a few popular stocks to avoid rate limits with free tier
-      // These are some of the most popular stocks that will be interesting to track
+      // Top stocks by market cap for US market - we'll carefully limit our requests
+      // due to TwelveData API free tier limit of 8 credits per minute
       const popularStocks = [
-        { ticker: 'AAPL', name: 'Apple Inc.', sector: 'technology' },
-        { ticker: 'MSFT', name: 'Microsoft Corporation', sector: 'technology' },
-        { ticker: 'GOOGL', name: 'Alphabet Inc.', sector: 'technology' },
-        { ticker: 'AMZN', name: 'Amazon.com Inc.', sector: 'consumer_cyclical' },
-        { ticker: 'META', name: 'Meta Platforms Inc.', sector: 'technology' },
-        { ticker: 'TSLA', name: 'Tesla Inc.', sector: 'consumer_cyclical' },
-        { ticker: 'JPM', name: 'JPMorgan Chase & Co.', sector: 'financials' },
-        { ticker: 'JNJ', name: 'Johnson & Johnson', sector: 'healthcare' },
-        { ticker: 'NVDA', name: 'NVIDIA Corporation', sector: 'technology' },
-        { ticker: 'V', name: 'Visa Inc.', sector: 'financials' }
+        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA', 'JPM', // First batch (8 stocks)
+        'V', 'JNJ', 'UNH', 'WMT', 'PG', 'HD', 'BAC', 'MA',               // Second batch (if credits available)
+        'AVGO', 'LLY', 'XOM', 'COST', 'CVX', 'MRK', 'KO', 'PEP',
+        'ABBV', 'PFE', 'CSCO', 'TMO', 'CRM', 'DIS', 'MCD', 'INTC',
+        'ADBE', 'NFLX', 'AMD', 'CMCSA', 'QCOM', 'NKE', 'TXN', 'MS'
       ];
       
-      console.log(`Processing ${popularStocks.length} popular stocks to avoid API rate limits`);
+      console.log(`Processing stocks data from TwelveData API`);
       
       // Reset the stock map
       this.stocksData.clear();
       
-      // Process each popular stock with significant delay between requests
-      for (let i = 0; i < popularStocks.length; i++) {
-        try {
-          const stockInfo = popularStocks[i];
-          const symbol = stockInfo.ticker;
+      // TwelveData free tier only allows 8 API credits per minute
+      // So we'll only request 8 stocks to stay within this limit
+      const initialBatchSize = 8; // Reduced from 16 to stay within free tier limits
+      const firstBatch = popularStocks.slice(0, initialBatchSize);
+      
+      // Combine into a single group that stays within the free tier limit
+      const symbolsToFetch = firstBatch.join(',');
+      
+      console.log(`Fetching initial batch of ${initialBatchSize} stocks to stay within API rate limits...`);
+      
+      // Get quotes for the group (staying within 8 credits/minute limit)
+      const quotesUrl = `https://api.twelvedata.com/quote?symbol=${symbolsToFetch}&apikey=${apiKey}`;
+      console.log(`Requesting data from TwelveData API...`);
+      
+      // Variables for API response
+      let quotesResponse: any = null;
+      
+      try {
+        // Single request to stay within rate limits
+        console.log("Sending request to TwelveData API...");
+        const response = await axios.get(quotesUrl);
+        quotesResponse = response;
+        console.log('API response status:', response.status);
+        
+        // Process quotes immediately
+        if (response.data) {
+          const quotes = response.data;
+          console.log('Response data type:', typeof quotes);
+          console.log('Response data keys:', Object.keys(quotes));
           
-          console.log(`Processing stock ${i+1}/${popularStocks.length}: ${symbol}`);
-          
-          // Add significant delay between requests to avoid rate limit errors
-          if (i > 0) {
-            await delay(2000); // Wait 2 seconds between requests
-          }
-          
-          // Get detailed stock data using the grouping endpoint
-          const detailUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apiKey=${apiKey}`;
-          const detailResponse = await axios.get(detailUrl);
-          
-          if (!detailResponse.data || !detailResponse.data.results || !detailResponse.data.results.length) {
-            console.log(`No detail data available for ${symbol}, skipping...`);
-            continue;
-          }
-          
-          const detail = detailResponse.data.results[0];
-          
-          // Generate a recommendation based on relative price movements
-          const priceChange = detail.c - detail.o;
-          const priceChangePercent = (priceChange / detail.o) * 100;
-          
-          let recommendation: RecommendationType;
-          if (priceChangePercent > 5) {
-            recommendation = 'strong_buy';
-          } else if (priceChangePercent > 2) {
-            recommendation = 'buy';
-          } else if (priceChangePercent > -2) {
-            recommendation = 'hold';
-          } else if (priceChangePercent > -5) {
-            recommendation = 'sell';
+          // Check if we got an error response from the API
+          if (quotes.status === 'error' || quotes.code === 429 || quotes.message) {
+            console.error(`TwelveData API error:`, quotes.message || 'Unknown error');
+            // Continue to the fallback data path
+          } else if (quotes.symbol) {
+            // Single quote
+            console.log('Processing single quote for symbol:', quotes.symbol);
+            await this.processStockQuote(quotes);
           } else {
-            recommendation = 'strong_sell';
+            // Multiple quotes - only process valid quote objects
+            const validSymbols = Object.keys(quotes).filter(key => 
+              typeof quotes[key] === 'object' && quotes[key].symbol
+            );
+            
+            console.log('Found valid symbols:', validSymbols);
+            for (const symbol of validSymbols) {
+              await this.processStockQuote(quotes[symbol]);
+            }
           }
-          
-          // Create stock object with all necessary fields
-          const stock: Stock = {
-            id: this.stockId++,
-            symbol: symbol,
-            name: stockInfo.name,
-            price: detail.c.toFixed(2),
-            change: priceChange.toFixed(2),
-            changePercent: priceChangePercent.toFixed(2),
-            volume: String(detail.v),
-            marketCap: String(0), // We don't have this in the hardcoded list
-            sector: stockInfo.sector as Sector,
-            recommendation: recommendation,
-            high52Week: detail.h ? detail.h.toFixed(2) : null,
-            low52Week: detail.l ? detail.l.toFixed(2) : null,
-            peRatio: null, // Not available in this simplified approach
-            dividendYield: null, // Not available in this simplified approach
-            targetPrice: ((detail.c * 1.1) + (Math.random() * detail.c * 0.1)).toFixed(2) // Estimated target 10-20% above current
-          };
-          
-          // Add to storage
-          this.stocksData.set(symbol, stock);
-          console.log(`Successfully added ${symbol} data`);
-          
-        } catch (error) {
-          console.error(`Error processing stock ${popularStocks[i].ticker}:`, error);
-          // Continue with other stocks if one fails
+        }
+      } catch (error: any) {
+        console.error('Error fetching data from TwelveData API:', error.message);
+        if (error.response) {
+          console.error('Error response status:', error.response.status);
+          console.error('Error response data:', JSON.stringify(error.response.data || {}).substring(0, 300));
         }
       }
       
-      console.log(`Successfully loaded ${this.stocksData.size} stocks from Polygon.io API`);
+      console.log(`Successfully loaded ${this.stocksData.size} stocks from TwelveData API`);
       
       // If we didn't get any stocks, use fallback
       if (this.stocksData.size === 0) {
@@ -356,9 +339,99 @@ export class MemStorage implements IStorage {
       }
       
     } catch (error) {
-      console.error("Error refreshing stocks from Polygon.io API:", error);
+      console.error("Error refreshing stocks from TwelveData API:", error);
       console.log("Using fallback stock data instead");
       this.createFallbackStocks();
+    }
+  }
+  
+  private async processStockQuote(quote: any): Promise<void> {
+    try {
+      if (!quote || !quote.symbol) {
+        return;
+      }
+      
+      const symbol = quote.symbol;
+      console.log(`Processing stock: ${symbol}`);
+      
+      // Parse the numerical values
+      const open = parseFloat(quote.open || '0');
+      const close = parseFloat(quote.close || '0');
+      const high = parseFloat(quote.high || '0');
+      const low = parseFloat(quote.low || '0');
+      const volume = parseInt(quote.volume || '0');
+      const previousClose = parseFloat(quote.previous_close || open);
+      
+      // Calculate price change and percentage
+      const priceChange = close - previousClose;
+      const priceChangePercent = ((close - previousClose) / previousClose) * 100;
+      
+      // Determine stock sector based on symbol - this is a simplification
+      let sector: Sector;
+      
+      // Map sectors based on common knowledge about the stocks
+      const symbol_lower = symbol.toLowerCase();
+      if (['aapl', 'msft', 'googl', 'meta', 'nvda', 'adbe', 'orcl', 'crm', 'amd', 'intc', 'csco'].includes(symbol_lower)) {
+        sector = 'technology';
+      } else if (['jpm', 'bac', 'wfc', 'gs', 'ms', 'c', 'v', 'ma', 'axp'].includes(symbol_lower)) {
+        sector = 'financials';
+      } else if (['unh', 'jnj', 'lly', 'pfe', 'mrk', 'abbv', 'tmo', 'dhr', 'abt'].includes(symbol_lower)) {
+        sector = 'healthcare';
+      } else if (['xom', 'cvx', 'cop', 'slb', 'eog', 'psx', 'vlo', 'oxy'].includes(symbol_lower)) {
+        sector = 'energy';
+      } else if (['amzn', 'tsla', 'hd', 'mcd', 'nke', 'sbux', 'low', 'bkng', 'abnb', 'f', 'gm'].includes(symbol_lower)) {
+        sector = 'consumer_cyclical';
+      } else if (['wmt', 'pg', 'ko', 'pep', 'cost', 'cl', 'gis'].includes(symbol_lower)) {
+        sector = 'consumer_defensive';
+      } else if (['ups', 'hon', 'unp', 'ba', 'cat', 'de', 'lmt', 'rtx', 'ge', 'mmm'].includes(symbol_lower)) {
+        sector = 'industrials';
+      } else if (['lin', 'apd', 'ecl', 'dd', 'dow', 'fcx', 'nue'].includes(symbol_lower)) {
+        sector = 'basic_materials';
+      } else if (['nflx', 'dis', 'cmcsa', 'vz', 't', 'tmus', 'atvi', 'ea'].includes(symbol_lower)) {
+        sector = 'communication_services';
+      } else {
+        sector = 'technology'; // Default fallback
+      }
+      
+      // Generate a recommendation based on relative price movements
+      let recommendation: RecommendationType;
+      if (priceChangePercent > 5) {
+        recommendation = 'strong_buy';
+      } else if (priceChangePercent > 2) {
+        recommendation = 'buy';
+      } else if (priceChangePercent > -2) {
+        recommendation = 'hold';
+      } else if (priceChangePercent > -5) {
+        recommendation = 'sell';
+      } else {
+        recommendation = 'strong_sell';
+      }
+      
+      // Create stock object with all necessary fields
+      const stock: Stock = {
+        id: this.stockId++,
+        symbol: symbol,
+        name: quote.name || symbol,
+        price: close.toFixed(2),
+        change: priceChange.toFixed(2),
+        changePercent: priceChangePercent.toFixed(2),
+        volume: String(volume),
+        marketCap: String(0), // Not available in the basic API response
+        sector: sector,
+        recommendation: recommendation,
+        high52Week: high.toFixed(2), // Approximation
+        low52Week: low.toFixed(2), // Approximation
+        peRatio: null, // Not available in the basic response
+        dividendYield: null, // Not available in the basic response
+        targetPrice: (close * 1.15).toFixed(2) // Estimated target 15% above current
+      };
+      
+      // Add to storage
+      this.stocksData.set(symbol, stock);
+      console.log(`Successfully added ${symbol} data`);
+      
+    } catch (error) {
+      console.error(`Error processing stock quote:`, error);
     }
   }
 }

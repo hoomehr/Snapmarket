@@ -9,7 +9,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stocks", async (req: Request, res: Response) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+      const limit = parseInt(req.query.limit as string) || 16; // Changed to 16 for 4x4 grid
       const recommendation = req.query.recommendation as RecommendationType | undefined;
       const sector = req.query.sector as Sector | undefined;
       const sortBy = req.query.sortBy as SortOption || "alphabetical";

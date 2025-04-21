@@ -34,7 +34,7 @@ export function formatLargeNumber(value: number): string {
 }
 
 // Get background and text colors for recommendation types
-export function getRecommendationColor(recommendation: RecommendationType): { bg: string; text: string } {
+export function getRecommendationColor(recommendation: RecommendationType | string): { bg: string; text: string } {
   switch (recommendation) {
     case 'strong_buy':
       return { bg: 'bg-green-100', text: 'text-buy' };
@@ -46,6 +46,32 @@ export function getRecommendationColor(recommendation: RecommendationType): { bg
       return { bg: 'bg-red-50', text: 'text-sell' };
     case 'strong_sell':
       return { bg: 'bg-red-100', text: 'text-sell' };
+    default:
+      return { bg: 'bg-gray-100', text: 'text-gray-700' };
+  }
+}
+
+// Get color for sector tag
+export function getSectorColor(sector: string): { bg: string; text: string } {
+  switch (sector) {
+    case 'technology':
+      return { bg: 'bg-blue-100', text: 'text-blue-800' };
+    case 'financials':
+      return { bg: 'bg-green-100', text: 'text-green-800' };
+    case 'healthcare':
+      return { bg: 'bg-red-100', text: 'text-red-800' };
+    case 'energy':
+      return { bg: 'bg-yellow-100', text: 'text-yellow-800' };
+    case 'consumer_cyclical':
+      return { bg: 'bg-purple-100', text: 'text-purple-800' };
+    case 'consumer_defensive':
+      return { bg: 'bg-indigo-100', text: 'text-indigo-800' };
+    case 'industrials':
+      return { bg: 'bg-gray-100', text: 'text-gray-800' };
+    case 'basic_materials':
+      return { bg: 'bg-orange-100', text: 'text-orange-800' };
+    case 'communication_services':
+      return { bg: 'bg-pink-100', text: 'text-pink-800' };
     default:
       return { bg: 'bg-gray-100', text: 'text-gray-700' };
   }
