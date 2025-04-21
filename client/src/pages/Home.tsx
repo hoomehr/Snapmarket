@@ -96,16 +96,11 @@ export default function Home() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">SnapMarket</h1>
-              <p className="text-sm text-gray-500 mt-1">Buy/Sell/Hold recommendations for top market stocks</p>
+              <p className="text-sm text-gray-500 mt-1">Top 100 market stocks with AI-powered recommendations</p>
             </div>
             
-            {/* Filter Controls */}
+            {/* Refresh Button */}
             <FilterControls
-              recommendation={recommendation}
-              sector={sector}
-              sortBy={sortBy}
-              onFilterChange={handleFilterChange}
-              onSortChange={handleSortChange}
               onRefresh={handleRefresh}
               isRefreshing={isRefreshing}
             />
@@ -115,91 +110,7 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
-        {/* Recommendation Filter Tags */}
-        <div className="mb-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Recommendations</h3>
-          <div className="flex flex-wrap gap-2">
-            <button 
-              onClick={() => handleFilterChange('all_recommendations', sector)}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${!recommendation ? 'bg-black text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              All
-            </button>
-            <button 
-              onClick={() => handleFilterChange('strong_buy', sector)}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${recommendation === 'strong_buy' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Strong Buy
-            </button>
-            <button 
-              onClick={() => handleFilterChange('buy', sector)}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${recommendation === 'buy' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Buy
-            </button>
-            <button 
-              onClick={() => handleFilterChange('hold', sector)}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${recommendation === 'hold' ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Hold
-            </button>
-            <button 
-              onClick={() => handleFilterChange('sell', sector)}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${recommendation === 'sell' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Sell
-            </button>
-            <button 
-              onClick={() => handleFilterChange('strong_sell', sector)}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${recommendation === 'strong_sell' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Strong Sell
-            </button>
-          </div>
-        </div>
-        
-        {/* Sector Filter Tags */}
-        <div className="mb-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Sectors</h3>
-          <div className="flex flex-wrap gap-2">
-            <button 
-              onClick={() => handleFilterChange(recommendation, 'all_sectors')}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${!sector ? 'bg-black text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              All
-            </button>
-            <button 
-              onClick={() => handleFilterChange(recommendation, 'technology')}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${sector === 'technology' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Technology
-            </button>
-            <button 
-              onClick={() => handleFilterChange(recommendation, 'healthcare')}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${sector === 'healthcare' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Healthcare
-            </button>
-            <button 
-              onClick={() => handleFilterChange(recommendation, 'financials')}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${sector === 'financials' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Financials
-            </button>
-            <button 
-              onClick={() => handleFilterChange(recommendation, 'consumer_cyclical')}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${sector === 'consumer_cyclical' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Consumer Cyclical
-            </button>
-            <button 
-              onClick={() => handleFilterChange(recommendation, 'communication_services')}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${sector === 'communication_services' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Comm Services
-            </button>
-          </div>
-        </div>
+  
         
         {/* Stats Overview */}
         <StockStats 

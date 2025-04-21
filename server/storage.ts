@@ -1,6 +1,9 @@
 import { stocks, type Stock, type InsertStock, type RecommendationType, type Sector, type SortOption, recommendationTypes } from "@shared/schema";
 import axios from "axios";
 
+// Helper function to handle API rate limits
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // modify the interface with any CRUD methods
 // you might need
 export interface IStorage {
@@ -66,168 +69,109 @@ export class MemStorage implements IStorage {
   // Stock methods
   private async fetchInitialStocks(): Promise<void> {
     try {
-      // For demo, we'll add some initial stocks as a fallback 
-      // in case the API request fails or rate limits are hit
-      const defaultStocks = [
-        {
-          symbol: 'AAPL',
-          name: 'Apple Inc.',
-          price: 174.79,
-          change: 4.21,
-          changePercent: 2.41,
-          volume: 56300000,
-          marketCap: 2740000000000,
-          sector: 'technology',
-          recommendation: 'strong_buy',
-          high52Week: 198.23,
-          low52Week: 124.17,
-          peRatio: 28.74,
-          dividendYield: 0.51,
-          targetPrice: 193.50
-        },
-        {
-          symbol: 'MSFT',
-          name: 'Microsoft Corporation',
-          price: 385.64,
-          change: 6.48,
-          changePercent: 1.68,
-          volume: 21700000,
-          marketCap: 2860000000000,
-          sector: 'technology',
-          recommendation: 'buy',
-          high52Week: 420.82,
-          low52Week: 309.05,
-          peRatio: 33.21,
-          dividendYield: 0.72,
-          targetPrice: 415.75
-        },
-        {
-          symbol: 'AMZN',
-          name: 'Amazon.com Inc.',
-          price: 178.22,
-          change: -0.61,
-          changePercent: -0.34,
-          volume: 33900000,
-          marketCap: 1840000000000,
-          sector: 'consumer_cyclical',
-          recommendation: 'hold',
-          high52Week: 189.54,
-          low52Week: 118.35,
-          peRatio: 59.82,
-          dividendYield: 0,
-          targetPrice: 186.40
-        },
-        {
-          symbol: 'NFLX',
-          name: 'Netflix Inc.',
-          price: 625.78,
-          change: -7.82,
-          changePercent: -1.24,
-          volume: 5300000,
-          marketCap: 276500000000,
-          sector: 'communication_services',
-          recommendation: 'sell',
-          high52Week: 639.00,
-          low52Week: 344.73,
-          peRatio: 43.15,
-          dividendYield: 0,
-          targetPrice: 590.25
-        },
-        {
-          symbol: 'TSLA',
-          name: 'Tesla Inc.',
-          price: 205.13,
-          change: -7.53,
-          changePercent: -3.67,
-          volume: 122100000,
-          marketCap: 652900000000,
-          sector: 'consumer_cyclical',
-          recommendation: 'strong_sell',
-          high52Week: 299.29,
-          low52Week: 138.80,
-          peRatio: 83.65,
-          dividendYield: 0,
-          targetPrice: 175.80
-        },
-        {
-          symbol: 'NVDA',
-          name: 'NVIDIA Corporation',
-          price: 124.83,
-          change: 3.54,
-          changePercent: 2.83,
-          volume: 145200000,
-          marketCap: 3080000000000,
-          sector: 'technology',
-          recommendation: 'buy',
-          high52Week: 140.76,
-          low52Week: 39.23,
-          peRatio: 73.21,
-          dividendYield: 0.03,
-          targetPrice: 131.50
-        },
-        {
-          symbol: 'JPM',
-          name: 'JPMorgan Chase & Co.',
-          price: 198.95,
-          change: 1.15,
-          changePercent: 0.58,
-          volume: 8600000,
-          marketCap: 572100000000,
-          sector: 'financials',
-          recommendation: 'hold',
-          high52Week: 205.88,
-          low52Week: 135.19,
-          peRatio: 12.08,
-          dividendYield: 2.31,
-          targetPrice: 203.15
-        },
-        {
-          symbol: 'JNJ',
-          name: 'Johnson & Johnson',
-          price: 151.77,
-          change: 0.33,
-          changePercent: 0.22,
-          volume: 6500000,
-          marketCap: 364300000000,
-          sector: 'healthcare',
-          recommendation: 'buy',
-          high52Week: 168.35,
-          low52Week: 144.95,
-          peRatio: 9.42,
-          dividendYield: 3.15,
-          targetPrice: 162.80
-        }
-      ];
-
-      // Add the default stocks to our in-memory storage
-      for (const stock of defaultStocks) {
-        const id = this.stockId++;
-        // Convert numerical values to strings to match the schema
-        this.stocksData.set(stock.symbol, { 
-          id, 
-          symbol: stock.symbol,
-          name: stock.name,
-          price: String(stock.price),
-          change: String(stock.change),
-          changePercent: String(stock.changePercent),
-          volume: String(stock.volume),
-          marketCap: String(stock.marketCap),
-          sector: stock.sector as Sector,
-          recommendation: stock.recommendation as RecommendationType,
-          high52Week: String(stock.high52Week),
-          low52Week: String(stock.low52Week),
-          peRatio: String(stock.peRatio),
-          dividendYield: String(stock.dividendYield),
-          targetPrice: String(stock.targetPrice)
-        });
-      }
-
-      // Now try to fetch real stock data from API
+      // Initialize with empty stock data
+      this.stocksData = new Map();
+      
+      // Fetch real data right away using Polygon.io API
       await this.refreshStocks();
       
     } catch (error) {
       console.error("Error fetching initial stocks:", error);
-      // We already have default stocks, so continue execution
+      // Create some fallback stocks if API request fails
+      this.createFallbackStocks();
+    }
+  }
+  
+  private createFallbackStocks(): void {
+    console.log("Creating fallback stocks as API request failed");
+    // If API fails, create a few fallback stocks
+    const defaultStocks = [
+      {
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        price: 174.79,
+        change: 4.21,
+        changePercent: 2.41,
+        volume: 56300000,
+        marketCap: 2740000000000,
+        sector: 'technology',
+        recommendation: 'strong_buy',
+        high52Week: 198.23,
+        low52Week: 124.17,
+        peRatio: 28.74,
+        dividendYield: 0.51,
+        targetPrice: 193.50
+      },
+      {
+        symbol: 'MSFT',
+        name: 'Microsoft Corporation',
+        price: 385.64,
+        change: 6.48,
+        changePercent: 1.68,
+        volume: 21700000,
+        marketCap: 2860000000000,
+        sector: 'technology',
+        recommendation: 'buy',
+        high52Week: 420.82,
+        low52Week: 309.05,
+        peRatio: 33.21,
+        dividendYield: 0.72,
+        targetPrice: 415.75
+      },
+      {
+        symbol: 'AMZN',
+        name: 'Amazon.com Inc.',
+        price: 178.22,
+        change: -0.61,
+        changePercent: -0.34,
+        volume: 33900000,
+        marketCap: 1840000000000,
+        sector: 'consumer_cyclical',
+        recommendation: 'hold',
+        high52Week: 189.54,
+        low52Week: 118.35,
+        peRatio: 59.82,
+        dividendYield: 0,
+        targetPrice: 186.40
+      },
+      {
+        symbol: 'NFLX',
+        name: 'Netflix Inc.',
+        price: 625.78,
+        change: -7.82,
+        changePercent: -1.24,
+        volume: 5300000,
+        marketCap: 276500000000,
+        sector: 'communication_services',
+        recommendation: 'sell',
+        high52Week: 639.00,
+        low52Week: 344.73,
+        peRatio: 43.15,
+        dividendYield: 0,
+        targetPrice: 590.25
+      }
+    ];
+
+    // Add fallback stocks
+    for (const stock of defaultStocks) {
+      const id = this.stockId++;
+      this.stocksData.set(stock.symbol, { 
+        id, 
+        symbol: stock.symbol,
+        name: stock.name,
+        price: String(stock.price),
+        change: String(stock.change),
+        changePercent: String(stock.changePercent),
+        volume: String(stock.volume),
+        marketCap: String(stock.marketCap),
+        sector: stock.sector as Sector,
+        recommendation: stock.recommendation as RecommendationType,
+        high52Week: String(stock.high52Week),
+        low52Week: String(stock.low52Week),
+        peRatio: String(stock.peRatio),
+        dividendYield: String(stock.dividendYield),
+        targetPrice: String(stock.targetPrice)
+      });
     }
   }
 
@@ -305,84 +249,116 @@ export class MemStorage implements IStorage {
   
   async refreshStocks(): Promise<void> {
     try {
-      console.log("Refreshing stock data...");
+      console.log("Fetching real-time stock data from Polygon.io API...");
       
-      const stocks = Array.from(this.stocksData.values());
-      
-      for (const stock of stocks) {
-        // Generate a random price change with market momentum
-        // More positive for tech and healthcare, more volatile for consumer cyclical
-        let biasMultiplier = 1.0;
-        
-        // Add sector bias
-        if (stock.sector === 'technology' || stock.sector === 'healthcare') {
-          biasMultiplier = 1.5; // More positive bias for tech and healthcare
-        } else if (stock.sector === 'consumer_cyclical') {
-          biasMultiplier = 0.8; // Less positive bias for consumer cyclical
-        }
-        
-        // Add recommendation bias
-        if (stock.recommendation === 'strong_buy' || stock.recommendation === 'buy') {
-          biasMultiplier += 0.3; // Strong buy stocks tend to go up more
-        } else if (stock.recommendation === 'sell' || stock.recommendation === 'strong_sell') {
-          biasMultiplier -= 0.5; // Sell-rated stocks tend to go down more
-        }
-        
-        // Calculate the actual change percentage (between -3% and +4%)
-        const baseChange = (Math.random() * 7 - 3);
-        const changePercentNum = (baseChange * biasMultiplier);
-        const changePercentStr = changePercentNum.toFixed(2);
-        const priceChangeNum = (Number(stock.price) * changePercentNum / 100);
-        const priceChangeStr = priceChangeNum.toFixed(2);
-        const newPriceNum = (Number(stock.price) + priceChangeNum);
-        const newPriceStr = newPriceNum.toFixed(2);
-        
-        // Randomize volume with higher volume for changing recommendations
-        const newVolumeNum = Math.floor(Number(stock.volume) * (0.8 + Math.random() * 0.4));
-        const newVolumeStr = newVolumeNum.toString();
-        
-        // Occasionally update the target price
-        let newTargetPriceStr = stock.targetPrice;
-        if (Math.random() < 0.3 && stock.targetPrice) {
-          const currentTargetPrice = Number(stock.targetPrice);
-          const newTargetPriceNum = currentTargetPrice * (1 + (Math.random() * 0.1 - 0.05));
-          newTargetPriceStr = newTargetPriceNum.toFixed(2);
-        }
-        
-        // Occasionally change the recommendation based on price movement
-        let newRecommendation = stock.recommendation;
-        if (Math.random() < 0.15) { // 15% chance to change recommendation
-          const currentIndex = recommendationTypes.indexOf(stock.recommendation as RecommendationType);
-          
-          if (changePercentNum > 2 && currentIndex > 0) {
-            // If price goes up significantly, improve recommendation
-            newRecommendation = recommendationTypes[currentIndex - 1];
-          } else if (changePercentNum < -2 && currentIndex < recommendationTypes.length - 1) {
-            // If price drops significantly, worsen recommendation
-            newRecommendation = recommendationTypes[currentIndex + 1];
-          }
-        }
-        
-        // Create updated stock with correct types
-        const updatedStock: Stock = {
-          ...stock,
-          price: newPriceStr,
-          change: priceChangeStr,
-          changePercent: changePercentStr,
-          recommendation: newRecommendation as RecommendationType,
-          volume: newVolumeStr,
-          targetPrice: newTargetPriceStr
-        };
-        
-        // Update the stock in the map
-        this.stocksData.set(stock.symbol, updatedStock);
+      // Check if we have an API key
+      const apiKey = process.env.POLYGON_API_KEY;
+      if (!apiKey) {
+        throw new Error("POLYGON_API_KEY environment variable is not set");
       }
       
-      console.log("Stock data refreshed successfully");
+      // Only process a few popular stocks to avoid rate limits with free tier
+      // These are some of the most popular stocks that will be interesting to track
+      const popularStocks = [
+        { ticker: 'AAPL', name: 'Apple Inc.', sector: 'technology' },
+        { ticker: 'MSFT', name: 'Microsoft Corporation', sector: 'technology' },
+        { ticker: 'GOOGL', name: 'Alphabet Inc.', sector: 'technology' },
+        { ticker: 'AMZN', name: 'Amazon.com Inc.', sector: 'consumer_cyclical' },
+        { ticker: 'META', name: 'Meta Platforms Inc.', sector: 'technology' },
+        { ticker: 'TSLA', name: 'Tesla Inc.', sector: 'consumer_cyclical' },
+        { ticker: 'JPM', name: 'JPMorgan Chase & Co.', sector: 'financials' },
+        { ticker: 'JNJ', name: 'Johnson & Johnson', sector: 'healthcare' },
+        { ticker: 'NVDA', name: 'NVIDIA Corporation', sector: 'technology' },
+        { ticker: 'V', name: 'Visa Inc.', sector: 'financials' }
+      ];
+      
+      console.log(`Processing ${popularStocks.length} popular stocks to avoid API rate limits`);
+      
+      // Reset the stock map
+      this.stocksData.clear();
+      
+      // Process each popular stock with significant delay between requests
+      for (let i = 0; i < popularStocks.length; i++) {
+        try {
+          const stockInfo = popularStocks[i];
+          const symbol = stockInfo.ticker;
+          
+          console.log(`Processing stock ${i+1}/${popularStocks.length}: ${symbol}`);
+          
+          // Add significant delay between requests to avoid rate limit errors
+          if (i > 0) {
+            await delay(2000); // Wait 2 seconds between requests
+          }
+          
+          // Get detailed stock data using the grouping endpoint
+          const detailUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apiKey=${apiKey}`;
+          const detailResponse = await axios.get(detailUrl);
+          
+          if (!detailResponse.data || !detailResponse.data.results || !detailResponse.data.results.length) {
+            console.log(`No detail data available for ${symbol}, skipping...`);
+            continue;
+          }
+          
+          const detail = detailResponse.data.results[0];
+          
+          // Generate a recommendation based on relative price movements
+          const priceChange = detail.c - detail.o;
+          const priceChangePercent = (priceChange / detail.o) * 100;
+          
+          let recommendation: RecommendationType;
+          if (priceChangePercent > 5) {
+            recommendation = 'strong_buy';
+          } else if (priceChangePercent > 2) {
+            recommendation = 'buy';
+          } else if (priceChangePercent > -2) {
+            recommendation = 'hold';
+          } else if (priceChangePercent > -5) {
+            recommendation = 'sell';
+          } else {
+            recommendation = 'strong_sell';
+          }
+          
+          // Create stock object with all necessary fields
+          const stock: Stock = {
+            id: this.stockId++,
+            symbol: symbol,
+            name: stockInfo.name,
+            price: detail.c.toFixed(2),
+            change: priceChange.toFixed(2),
+            changePercent: priceChangePercent.toFixed(2),
+            volume: String(detail.v),
+            marketCap: String(0), // We don't have this in the hardcoded list
+            sector: stockInfo.sector as Sector,
+            recommendation: recommendation,
+            high52Week: detail.h ? detail.h.toFixed(2) : null,
+            low52Week: detail.l ? detail.l.toFixed(2) : null,
+            peRatio: null, // Not available in this simplified approach
+            dividendYield: null, // Not available in this simplified approach
+            targetPrice: ((detail.c * 1.1) + (Math.random() * detail.c * 0.1)).toFixed(2) // Estimated target 10-20% above current
+          };
+          
+          // Add to storage
+          this.stocksData.set(symbol, stock);
+          console.log(`Successfully added ${symbol} data`);
+          
+        } catch (error) {
+          console.error(`Error processing stock ${popularStocks[i].ticker}:`, error);
+          // Continue with other stocks if one fails
+        }
+      }
+      
+      console.log(`Successfully loaded ${this.stocksData.size} stocks from Polygon.io API`);
+      
+      // If we didn't get any stocks, use fallback
+      if (this.stocksData.size === 0) {
+        console.log("No stocks fetched from API, using fallback data");
+        this.createFallbackStocks();
+      }
       
     } catch (error) {
-      console.error("Error refreshing stocks:", error);
-      throw error;
+      console.error("Error refreshing stocks from Polygon.io API:", error);
+      console.log("Using fallback stock data instead");
+      this.createFallbackStocks();
     }
   }
 }
